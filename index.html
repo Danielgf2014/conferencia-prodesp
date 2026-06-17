@@ -531,11 +531,33 @@ async function loadBase() {
       return;
     }
     const rows = res.values;
-    const headers = rows[0].map(h => h.toLowerCase().trim());
-    const idxPat = headers.indexOf('patrimonio');
-    const idxSer = headers.indexOf('serial');
-    const idxUni = headers.indexOf('unidade');
-    const idxSta = headers.indexOf('status');
+
+    // Normalize header: remove accents, lowercase, trim
+    function normHeader(h) {
+      return (h || '').toString().toLowerCase().trim()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    }
+
+    const rawHeaders = rows[0];
+    const headers = rawHeaders.map(normHeader);
+
+    // Debug: log headers found
+    console.log('Cabeçalhos encontrados:', rawHeaders);
+
+    // Find columns flexibly
+    const idxPat = headers.findIndex(h => h.includes('patrimonio') || h.includes('patrimônio') || h === 'pat');
+    const idxSer = headers.findIndex(h => h.includes('serial') || h === 'ser');
+    const idxUni = headers.findIndex(h => h.includes('unidade') || h === 'uni');
+    const idxSta = headers.findIndex(h => h.includes('status') || h === 'sta');
+    const idxOp  = headers.findIndex(h => h.includes('operador') || h.includes('operator'));
+    const idxDat = headers.findIndex(h => h.includes('data') || h === 'dat');
+    const idxHor = headers.findIndex(h => h.includes('hora') || h === 'hor');
+
+    if (idxPat === -1 && idxSer === -1) {
+      showToast('Colunas não encontradas. Verifique o console (F12) para ver os cabeçalhos.', 'err');
+      console.error('Cabeçalhos detectados:', headers);
+      showApp(); return;
+    }
 
     baseData = {};
     globalCPU = 0; globalMON = 0;
@@ -549,7 +571,7 @@ async function loadBase() {
       const sta = (row[idxSta] || '').toString().trim().toUpperCase();
       const rowIdx = i + 1; // 1-based sheet row
 
-      const entry = { patrimonio: pat, serial: ser, unidade: uni, status: sta, rowIdx, colStatus: idxSta, colOp: headers.indexOf('operador'), colData: headers.indexOf('data'), colHora: headers.indexOf('hora') };
+      const entry = { patrimonio: pat, serial: ser, unidade: uni, status: sta, rowIdx, colStatus: idxSta, colOp: idxOp, colData: idxDat, colHora: idxHor };
 
       if (ser) baseData[ser] = entry;
       if (pat) baseData[pat] = entry;
